@@ -1,0 +1,130 @@
+---
+title: "flex_dashboard"
+author: "Edison Velazco"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    social: menu
+    source_code: embed
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(plotly)
+library(plyr)
+library(flexdashboard)
+library(readr)
+series <- read_csv("balanza_comercial.csv")#Fuente BCRP, elaboracion propia
+series$Periodo<-seq(as.Date("2012/01/01"), as.Date("2022/10/01"), "month")
+exp <- ts(series$Exportaciones,frequency = 12,start = c(2012,1))
+imp <- ts(series$Importaciones,frequency = 12,start = c(2012,1))
+bal_c <- ts(series$Exportaciones-series$Importaciones,frequency = 12,start = c(2012,1))
+```
+
+dygraphs
+=======================================================================
+
+Row
+-----------------------------------------------------------------------
+
+### Exportaciones e Importaciones
+
+```{r, fig.width=350}
+library(xts)
+xt_series <- xts(series[,c("Exportaciones","Importaciones")],order.by = series$Periodo,frequency = 12)
+library(dygraphs)
+dygraph(xt_series) %>%
+  dyRangeSelector()
+```
+
+
+### Balanza comercial
+
+```{r, fig.width=150}
+dygraph(bal_c) %>%
+  dyLimit(limit = 0, color="red")
+```
+
+Row
+-----------------------------------------------------------------------
+
+### Forecast Exportaciones
+
+```{r}
+library(forecast)
+m_exp <- HoltWinters(exp)
+p <- predict(m_exp, n.ahead = 12, prediction.interval = TRUE)
+#f_exp <- data.frame(f_exp)
+#f_exp$month <- seq(as.Date("2022/11/01"), as.Date("2023/10/01"), "month")
+#xt_f_exp <- xts(f_exp[,c("Point.Forecast","Lo.95","Hi.95")],order.by = f_exp$month,frequency = 12)
+p <- cbind(exp,p)
+dygraph(p, main = "Pronostico de exportaciones") %>%
+  dySeries("exp", label = "Exportaciones") %>%
+  dySeries(c("p.lwr", "p.fit", "p.upr"), label = "Predicted")
+```
+
+### Forecast Importaciones
+
+```{r}
+m_imp <- HoltWinters(imp)
+p <- predict(m_imp, n.ahead = 12, prediction.interval = TRUE)
+#f_exp <- data.frame(f_exp)
+#f_exp$month <- seq(as.Date("2022/11/01"), as.Date("2023/10/01"), "month")
+#xt_f_exp <- xts(f_exp[,c("Point.Forecast","Lo.95","Hi.95")],order.by = f_exp$month,frequency = 12)
+p <- cbind(imp,p)
+dygraph(p, main = "Pronostico de importaciones") %>%
+  dySeries("imp", label = "Importaciones") %>%
+  dySeries(c("p.lwr", "p.fit", "p.upr"), label = "Predicted")
+```
+
+plotly
+=======================================================================
+
+Row
+-----------------------------------------------------------------------
+
+### Exportaciones e Importaciones
+
+```{r, fig.width=350}
+plot_ly() %>%
+  add_lines(x = as.Date(time(imp)), y = imp, color = I("red"), name = "Importaciones") %>%
+  add_lines(x = as.Date(time(exp)), y = exp, color = I("blue"), name = "Exportaciones")
+```
+
+### Grafico de dispercion
+
+```{r, fig.width=150}
+series %>% plot_ly(x=~Exportaciones,y=~Importaciones, type = "scatter") %>%
+      add_lines(y = ~fitted(loess(Importaciones ~ Exportaciones)))
+```
+
+Row
+-----------------------------------------------------------------------
+
+### Forecast exportaciones
+
+```{r}
+m_exp <- auto.arima(exp)
+f_exp <- forecast(m_exp,12,level = 0.95)
+
+plot_ly() %>%
+  add_lines(x = as.Date(time(exp)), y = exp,
+            color = I("black"), name = "observed") %>%
+  add_ribbons(x = as.Date(time(f_exp$mean)), ymin = f_exp$lower[,1], ymax = f_exp$upper[,1],
+              color = I("steelblue2"), name = "95% confidence") %>%
+  add_lines(x = as.Date(time(f_exp$mean)), y = f_exp$mean, color = I("blue"), name = "prediction")
+```
+
+### Forecast importaciones
+
+```{r}
+m_imp <- auto.arima(imp)
+f_imp <- forecast(m_imp,12,level = 0.95)
+
+plot_ly() %>%
+  add_lines(x = as.Date(time(imp)), y = imp,
+            color = I("black"), name = "observed") %>%
+  add_ribbons(x = as.Date(time(f_imp$mean)), ymin = f_imp$lower[,1], ymax = f_imp$upper[,1],
+              color = I("steelblue2"), name = "95% confidence") %>%
+  add_lines(x = as.Date(time(f_imp$mean)), y = f_imp$mean, color = I("blue"), name = "prediction")
+```
