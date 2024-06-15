@@ -1,0 +1,23 @@
+name: Simple E2E Workflow - Three Env
+on:
+  push: 
+    branches:       
+    -  main
+  workflow_dispatch:
+
+jobs:
+  DEV:
+    runs-on: ubuntu-latest
+    environment: DEV
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run a script
+        run: |
+          echo "Ejecutando trabajo en entorno DEV: $MY_VARIABLE AND $GH_TOKEN" 
+        env: 
+          MY_VARIABLE: ${{ vars.MY_VARIABLE }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            
+
+
